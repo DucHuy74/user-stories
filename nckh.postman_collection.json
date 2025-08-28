@@ -1,0 +1,131 @@
+{
+	"info": {
+		"_postman_id": "1ea422bf-b290-4d1e-b70d-bf0d4e5cd031",
+		"name": "nckh",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30276076"
+	},
+	"item": [
+		{
+			"name": "analyze",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"user_stories\": [\r\n    \"As a user, I can login to the system\",\r\n    \"As a manager, I can approve requests\"\r\n  ]\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/analyze",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"analyze"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get stories",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"user_stories\": [\r\n    \"As a user, I can login to the system\",\r\n    \"As a manager, I can approve requests\"\r\n  ]\r\n}"
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/stories",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"stories"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "post stories",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"text\": [\r\n    \"As a user, I can logout to the system\",\r\n    \"As a manager, I can deny requests\"\r\n  ]\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/stories",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"stories"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get analyze",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"user_stories\": [\r\n    \"As a user, I can login to the system\",\r\n    \"As a manager, I can approve requests\"\r\n  ]\r\n}"
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8000/analyze/536e42a9-3de0-4c82-af78-1f6a61afbf63",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"1"
+					],
+					"port": "8000",
+					"path": [
+						"analyze",
+						"536e42a9-3de0-4c82-af78-1f6a61afbf63"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
