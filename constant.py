@@ -1,0 +1,3 @@
+URL_CONNECTION_GRAPH_DB = "bolt://localhost:7687"
+USER_GRAPH_DB = "neo4j"
+PASSWORD_GRAPH_DB = "test123456"
