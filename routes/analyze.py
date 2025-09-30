@@ -24,7 +24,6 @@ graph = GraphDB(uri=URL_CONNECTION_GRAPH_DB , user=USER_GRAPH_DB, password=PASSW
 @router.post("/analyze")
 async def analyze_stories(data: StoriesInput):
     try:
-
         phase1 = Phase1()
         p1 = phase1.process_text(data.user_stories)
 
