@@ -1,3 +1,13 @@
 URL_CONNECTION_GRAPH_DB = "bolt://localhost:7687"
 USER_GRAPH_DB = "neo4j"
 PASSWORD_GRAPH_DB = "test123456"
+
+# MySQL Database Configuration
+MYSQL_HOST = "localhost"
+MYSQL_PORT = 3309
+MYSQL_USERNAME = "root"
+MYSQL_PASSWORD = "ead8686ba57479778a76e"
+MYSQL_DATABASE = "user_stories_db"
+
+# Database URL for SQLAlchemy
+DATABASE_URL = f"mysql+pymysql://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
