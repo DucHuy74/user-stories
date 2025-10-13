@@ -10,6 +10,7 @@ from models import UserStory, Concept, ProcessingSession, VisualNarratorResult
 from database import DatabaseSession, get_database_manager
 import logging
 import re
+import uuid
 
 class Phase1:
     def __init__(self, model_name: str = "en_core_web_sm", session_name: str = None):
@@ -24,9 +25,10 @@ class Phase1:
 
         self.user_stories = []
         self.extracted_concepts = {}
-        self.session_name = session_name or f"phase1_session_{self._get_timestamp()}"
+        # session name includes timestamp and a uuid to ensure uniqueness
+        self.session_name = session_name or f"phase1_session_{self._get_timestamp()}_{uuid.uuid4().hex}"
         self.db_manager = get_database_manager()
-        
+
         # Khởi tạo database nếu chưa có
         self.db_manager.create_tables()
         
@@ -55,7 +57,8 @@ class Phase1:
                     action = action.lower().strip() if action else ""
                     obj = obj.lower().strip() if obj else ""
 
-                    story_id = f"US_{i+1:03d}"
+                    # Use UUID for story id
+                    story_id = str(uuid.uuid4())
                     
                     # Tạo concept dictionary cho return
                     concept = {
@@ -257,8 +260,8 @@ class Phase1:
             logging.error(f"Visual Narrator processing failed: {e}")
             return None
 
-    def _save_visual_narrator_result(self, session: Session, user_story_id: int, 
-                                   visual_result: Dict, session_id: int):
+    def _save_visual_narrator_result(self, session: Session, user_story_id: str, 
+                                   visual_result: Dict, session_id: str):
         """Lưu kết quả Visual Narrator vào database"""
         if visual_result:
             visual_narrator = VisualNarratorResult(
@@ -284,7 +287,7 @@ class Phase1:
             session.flush()  # Để lấy ID
             return processing_session
     
-    def _update_processing_session(self, session: Session, session_id: int, 
+    def _update_processing_session(self, session: Session, session_id: str, 
                                  phase_completed: int, status: str):
         """Cập nhật processing session"""
         processing_session = session.query(ProcessingSession).filter_by(id=session_id).first()
@@ -296,7 +299,7 @@ class Phase1:
                 processing_session.completed_at = datetime.utcnow()
     
     def _save_to_database(self, session: Session, story_id: str, original_text: str, 
-                         role: str, action: str, obj: str) -> int:
+                         role: str, action: str, obj: str) -> str:
         """Lưu user story và concept vào database, return user_story_id"""
         # Tạo user story
         user_story = UserStory(

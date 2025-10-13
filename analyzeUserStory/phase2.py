@@ -11,7 +11,7 @@ from database import DatabaseSession, get_database_manager
 import logging
 
 class Phase2:
-    def __init__(self, session_id: int = None):
+    def __init__(self, session_id: str = None):
         self.input_data = {}
         self.object_frequency = {}
         self.final_output = []
@@ -178,7 +178,7 @@ class Phase2:
         """Lưu Important Concept Domains vào database theo lưu đồ"""
         for record in self.final_output:
             # Tìm user story và concept tương ứng
-            usid = record["usid_text"].split(":")[0].strip()
+            usid = record["usid_text"].split(":", 1)[0].strip()
             user_story = session.query(UserStory).filter_by(story_id=usid).first()
             
             if user_story:
@@ -214,7 +214,7 @@ class Phase2:
                 from datetime import datetime
                 processing_session.completed_at = datetime.utcnow()
     
-    def load_from_database(self, session_id: int) -> Dict:
+    def load_from_database(self, session_id: str) -> Dict:
         """Load dữ liệu Phase 2 từ database"""
         self.session_id = session_id
         

@@ -24,7 +24,7 @@ except ImportError:
     logging.warning("Word2Vec libraries not available. Install gensim and scikit-learn for full functionality.")
 
 class Phase3:
-    def __init__(self, session_id: int = None):
+    def __init__(self, session_id: str = None):
         self.input_data = {}
         self.synonyms = defaultdict(list)
         self.similarities = []
@@ -214,7 +214,7 @@ class Phase3:
         story_map = defaultdict(lambda: {"subject": "", "verb": "", "object": "", "usid": ""})
 
         for record in all_records:
-            usid = record.get("usid_text", "").split(":")[0].strip()
+            usid = record.get("usid_text", "").split(":", 1)[0].strip()
             
             if "role" in record.get("concept_and_domain", ""):
                 story_map[usid]["subject"] = record.get("text", "")
@@ -406,7 +406,7 @@ class Phase3:
                 from datetime import datetime
                 processing_session.completed_at = datetime.utcnow()
     
-    def load_from_database(self, session_id: int) -> Dict:
+    def load_from_database(self, session_id: str) -> Dict:
         """Load dữ liệu Phase 3 từ database"""
         self.session_id = session_id
         
