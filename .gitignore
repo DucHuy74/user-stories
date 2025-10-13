@@ -1,12 +1,52 @@
-# Byte-compiled / optimized / DLL files
+# --- Python cache ---
 __pycache__/
 *.py[cod]
 *$py.class
 
-# C extension
-*.so
-
-# Virtual environment
+# --- Virtual environment ---
 venv/
+.env/
+.env
 .venv/
 env/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Environment variables ---
+.env.local
+.env.production
+.env.development
+
+# --- Database / SQLite ---
+*.db
+*.sqlite3
+
+# --- IDE / Editor configs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Logs ---
+*.log
+logs/
+*.pid
+
+# --- Compiled or build artifacts ---
+build/
+dist/
+*.egg-info/
+*.spec
+
+# --- Coverage & test cache ---
+.coverage
+htmlcov/
+.cache/
+.pytest_cache/
+.tox/
+.nox/
+
+# --- OS files ---
+.DS_Store
+Thumbs.db

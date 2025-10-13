@@ -1,13 +1,20 @@
-URL_CONNECTION_GRAPH_DB = "bolt://localhost:7687"
-USER_GRAPH_DB = "neo4j"
-PASSWORD_GRAPH_DB = "test123456"
+import os
+from dotenv import load_dotenv
 
-# MySQL Database Configuration
-MYSQL_HOST = "localhost"
-MYSQL_PORT = 3309
-MYSQL_USERNAME = "root"
-MYSQL_PASSWORD = "ead8686ba57479778a76e"
-MYSQL_DATABASE = "user_stories_db"
+# Load .env nếu đang chạy local (khi deploy thật thì Aiven / Docker sẽ tự inject env)
+load_dotenv()
+URL_CONNECTION_GRAPH_DB = os.environ["URL_CONNECTION_GRAPH_DB"]
+USER_GRAPH_DB = os.environ["USER_GRAPH_DB"]
+PASSWORD_GRAPH_DB = os.environ["PASSWORD_GRAPH_DB"]
 
-# Database URL for SQLAlchemy
-DATABASE_URL = f"mysql+pymysql://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+MYSQL_HOST = os.environ["MYSQL_HOST"]
+MYSQL_PORT = int(os.environ["MYSQL_PORT"])
+MYSQL_USERNAME = os.environ["MYSQL_USERNAME"]
+MYSQL_PASSWORD = os.environ["MYSQL_PASSWORD"]
+MYSQL_DATABASE = os.environ["MYSQL_DATABASE"]
+
+# Kết nối SQLAlchemy
+DATABASE_URL = (
+    f"mysql+pymysql://{MYSQL_USERNAME}:{MYSQL_PASSWORD}"
+    f"@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+)
