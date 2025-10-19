@@ -18,7 +18,6 @@ class UserStory(Base):
     
     # Relationships
     concepts = relationship("Concept", back_populates="user_story")
-    phase2_records = relationship("Phase2Record", back_populates="user_story")
     svo_relationships = relationship("SVORelationship", back_populates="user_story")
 
 class Concept(Base):
@@ -30,6 +29,8 @@ class Concept(Base):
     role = Column(String(255))
     action = Column(String(255))
     object = Column(String(255))
+    # 'metadata' is a reserved attribute on Declarative Base, use attribute name 'metadata_json'
+    metadata_json = Column('metadata', JSON)  # store visual narrator / parsed info
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -45,21 +46,7 @@ class ConceptFrequency(Base):
     concept_type = Column(String(50))  # 'role', 'object', 'action'
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class Phase2Record(Base):
-    """Bảng lưu trữ kết quả phân loại từ Phase 2"""
-    __tablename__ = 'phase2_records'
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_story_id = Column(String(36), ForeignKey('user_stories.id'), nullable=False)
-    indices = Column(Integer)
-    text = Column(String(255))
-    concept_and_domain = Column(String(100))
-    feature_flag = Column(Integer)
-    value_flag = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    user_story = relationship("UserStory", back_populates="phase2_records")
+
 
 class ConceptSynonym(Base):
     """Bảng lưu trữ synonyms từ WordNet"""
@@ -96,83 +83,16 @@ class SVORelationship(Base):
     # Relationships
     user_story = relationship("UserStory", back_populates="svo_relationships")
 
-class PairwiseRelationship(Base):
-    """Bảng lưu trữ pair-wise relationships theo lưu đồ"""
-    __tablename__ = 'pairwise_relationships'
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    concept1_id = Column(String(36), ForeignKey('concepts.id'), nullable=False)
-    concept2_id = Column(String(36), ForeignKey('concepts.id'), nullable=False)
-    relationship_type = Column(String(50))  # semantic, syntactic, etc.
-    strength_score = Column(Float, nullable=False)
-    method = Column(String(50))  # wu-palmer, word2vec, etc.
-    session_id = Column(String(36), ForeignKey('processing_sessions.id'))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    concept1 = relationship("Concept", foreign_keys=[concept1_id])
-    concept2 = relationship("Concept", foreign_keys=[concept2_id])
-    session = relationship("ProcessingSession")
-
-class ImportantConceptDomain(Base):
-    """Bảng lưu trữ Important Concept Domain từ Phase 2 theo lưu đồ"""
-    __tablename__ = 'important_concept_domains'
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    concept_id = Column(String(36), ForeignKey('concepts.id'), nullable=False)
-    domain_type = Column(String(100))  # feature, role, object, etc.
-    importance_score = Column(Float)
-    is_feature = Column(Integer)  # 0 = feature, 1 = value
-    classification = Column(String(100))  # role(general), object(general), feature
-    session_id = Column(String(36), ForeignKey('processing_sessions.id'))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    concept = relationship("Concept")
-    session = relationship("ProcessingSession")
-
-class VisualNarratorResult(Base):
-    """Bảng lưu trữ kết quả Visual Narrator processing"""
-    __tablename__ = 'visual_narrator_results'
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_story_id = Column(String(36), ForeignKey('user_stories.id'), nullable=False)
-    parsed_structure = Column(JSON)  # Cấu trúc được parse
-    entities = Column(JSON)  # Các entities được nhận diện
-    relationships = Column(JSON)  # Mối quan hệ giữa entities
-    confidence_score = Column(Float)
-    session_id = Column(String(36), ForeignKey('processing_sessions.id'))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    user_story = relationship("UserStory")
-    session = relationship("ProcessingSession")
-
-class NormalCheckExclude(Base):
-    """Bảng lưu trữ kết quả Normal Check Exclude filtering"""
-    __tablename__ = 'normal_check_excludes'
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    concept_id = Column(String(36), ForeignKey('concepts.id'), nullable=False)
-    is_excluded = Column(Integer, default=0)  # 0 = included, 1 = excluded
-    exclusion_reason = Column(String(255))
-    filter_type = Column(String(50))  # frequency_filter, domain_filter, etc.
-    session_id = Column(String(36), ForeignKey('processing_sessions.id'))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    concept = relationship("Concept")
-    session = relationship("ProcessingSession")
-
+# Removed several auxiliary tables for simplification. Keep a lightweight ProcessingSession
 class ProcessingSession(Base):
-    """Bảng theo dõi các session xử lý"""
+    """Lightweight processing session tracking"""
     __tablename__ = 'processing_sessions'
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_name = Column(String(100))
-    phase_completed = Column(Integer, default=0)  # 0, 1, 2, 3
+    phase_completed = Column(Integer, default=0)
     total_stories = Column(Integer)
-    status = Column(String(50), default='started')  # started, completed, failed
+    status = Column(String(50), default='started')
     created_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime)
-    metadata_info = Column(JSON)  # Lưu thêm thông tin nếu cần
+    metadata_info = Column(JSON)

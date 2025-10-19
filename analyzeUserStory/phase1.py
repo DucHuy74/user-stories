@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from models import UserStory, Concept, ProcessingSession, VisualNarratorResult
+from models import UserStory, Concept, ProcessingSession
 from database import DatabaseSession, get_database_manager
 import logging
 import re
@@ -263,16 +263,19 @@ class Phase1:
     def _save_visual_narrator_result(self, session: Session, user_story_id: str, 
                                    visual_result: Dict, session_id: str):
         """Lưu kết quả Visual Narrator vào database"""
-        if visual_result:
-            visual_narrator = VisualNarratorResult(
-                user_story_id=user_story_id,
-                parsed_structure=visual_result.get('parsed_structure'),
-                entities=visual_result.get('entities'),
-                relationships=visual_result.get('relationships'),
-                confidence_score=visual_result.get('confidence_score'),
-                session_id=session_id
-            )
-            session.add(visual_narrator)
+    # Simplified: store visual narrator result inside Concept.metadata_json
+        try:
+            concept = session.query(Concept).filter_by(user_story_id=user_story_id).first()
+            if concept:
+                meta = concept.metadata_json or {}
+                meta.update({
+                    'visual_narrator': visual_result,
+                    'visual_session': session_id
+                })
+                concept.metadata_json = meta
+                session.add(concept)
+        except Exception as e:
+            logging.error(f"Failed to save visual narrator result to concept metadata: {e}")
 
     def _create_processing_session(self, total_stories: int) -> ProcessingSession:
         """Tạo processing session mới"""
