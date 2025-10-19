@@ -2,10 +2,10 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel
+from typing import List
 from analyzeUserStory.phase1 import Phase1
 from analyzeUserStory.phase2 import Phase2
 from analyzeUserStory.phase3 import Phase3
-from typing import List
 from constant import PASSWORD_GRAPH_DB, URL_CONNECTION_GRAPH_DB, USER_GRAPH_DB
 from fastapi import HTTPException
 
