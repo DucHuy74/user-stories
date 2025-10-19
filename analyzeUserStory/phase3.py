@@ -8,8 +8,8 @@ from sqlalchemy.exc import SQLAlchemyError
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from models import (UserStory, ImportantConceptDomain, ConceptSynonym, ConceptSimilarity, 
-                   SVORelationship, ProcessingSession, PairwiseRelationship, Concept)
+from models import (UserStory, ConceptSynonym, ConceptSimilarity, 
+                   SVORelationship, ProcessingSession, Concept)
 from database import DatabaseSession, get_database_manager
 import logging
 import numpy as np
@@ -265,30 +265,33 @@ class Phase3:
             if not processing_session:
                 raise ValueError(f"Session ID {self.session_id} not found")
             
-            # Load important concept domains
-            domains = session.query(ImportantConceptDomain).join(Concept).join(UserStory).all()
+            # Load concepts and construct final_output from Concept.metadata_json
+            concepts = session.query(Concept).join(UserStory).all()
             final_output = []
-            
-            for i, domain in enumerate(domains):
-                concept = domain.concept
-                text = ""
-                if domain.classification == "feature":
+            for i, concept in enumerate(concepts):
+                meta = concept.metadata_json or {}
+                classification = meta.get("classification") or (
+                    "feature" if concept.action else ("role" if concept.role else ("object" if concept.object else "unknown"))
+                )
+                if classification == "feature":
                     text = concept.action
-                elif "role" in domain.classification:
+                elif "role" in classification:
                     text = concept.role
-                elif "object" in domain.classification:
+                elif "object" in classification:
                     text = concept.object
-                
+                else:
+                    text = concept.action or concept.role or concept.object or ""
+
                 record_dict = {
                     "indices": i + 1,
                     "usid_text": f"{concept.user_story.story_id}: {concept.user_story.original_text}",
                     "text": text,
-                    "concept_and_domain": domain.classification,
-                    "0 - feature flag": domain.is_feature if domain.classification == "feature" else None,
-                    "1 - value flag": 1 if domain.classification != "feature" else None
+                    "concept_and_domain": classification,
+                    "0 - feature flag": meta.get("is_feature") if classification == "feature" else None,
+                    "1 - value flag": meta.get("value_flag") if classification != "feature" else None
                 }
                 final_output.append(record_dict)
-            
+
             return {"final_output": final_output}
     
     def _save_synonyms_to_database(self, session: Session):
@@ -359,39 +362,9 @@ class Phase3:
 
     def _save_pairwise_relationships_to_database(self, session: Session):
         """Lưu pair-wise relationships vào database"""
-        pairwise_relationships = self._generate_pairwise_relationships()
-        
-        for pair_rel in pairwise_relationships:
-            # Tìm concepts tương ứng
-            concept1_obj = session.query(Concept).join(UserStory).filter(
-                Concept.role.contains(pair_rel["concept1"]) |
-                Concept.action.contains(pair_rel["concept1"]) |
-                Concept.object.contains(pair_rel["concept1"])
-            ).first()
-            
-            concept2_obj = session.query(Concept).join(UserStory).filter(
-                Concept.role.contains(pair_rel["concept2"]) |
-                Concept.action.contains(pair_rel["concept2"]) |
-                Concept.object.contains(pair_rel["concept2"])
-            ).first()
-            
-            if concept1_obj and concept2_obj:
-                # Kiểm tra xem đã tồn tại chưa
-                existing = session.query(PairwiseRelationship).filter_by(
-                    concept1_id=concept1_obj.id,
-                    concept2_id=concept2_obj.id
-                ).first()
-                
-                if not existing:
-                    pairwise_relationship = PairwiseRelationship(
-                        concept1_id=concept1_obj.id,
-                        concept2_id=concept2_obj.id,
-                        relationship_type=pair_rel["relationship_type"],
-                        strength_score=pair_rel["strength"],
-                        method=pair_rel["relationship_type"].split("_")[-1],  # wu-palmer, word2vec
-                        session_id=self.session_id
-                    )
-                    session.add(pairwise_relationship)
+        # Schema simplified: we don't persist pairwise relationships to DB anymore.
+        # Pairwise relationships are returned in final_output under 'pairwise_relationships'.
+        return
 
     def _update_processing_session(self, session: Session, phase_completed: int, status: str):
         """Cập nhật processing session"""

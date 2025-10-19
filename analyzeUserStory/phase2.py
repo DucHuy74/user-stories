@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from models import UserStory, Concept, ConceptFrequency, ImportantConceptDomain, ProcessingSession
+from models import UserStory, Concept, ConceptFrequency, ProcessingSession
 from database import DatabaseSession, get_database_manager
 import logging
 
@@ -189,17 +189,18 @@ class Phase2:
                 
                 if concept:
                     # Tính importance score dựa trên frequency
-                    importance_score = self.object_frequency.get(record.get("text"), 1) / len(self.final_output)
-                    
-                    important_concept = ImportantConceptDomain(
-                        concept_id=concept.id,
-                        domain_type=record.get("concept_and_domain"),
-                        importance_score=importance_score,
-                        is_feature=record.get("0 - feature flag"),
-                        classification=record.get("concept_and_domain"),
-                        session_id=self.session_id
-                    )
-                    session.add(important_concept)
+                    importance_score = self.object_frequency.get(record.get("text"), 1) / max(1, len(self.final_output))
+                    # Lưu classification và flags vào concept.metadata_json để đơn giản hóa schema
+                    meta = concept.metadata_json or {}
+                    meta_key = record.get("concept_and_domain", "unknown")
+                    meta.update({
+                        "classification": meta_key,
+                        "importance_score": importance_score,
+                        "is_feature": record.get("0 - feature flag"),
+                        "value_flag": record.get("1 - value flag")
+                    })
+                    concept.metadata_json = meta
+                    session.add(concept)
     
     def _update_processing_session(self, session: Session, phase_completed: int, status: str):
         """Cập nhật processing session"""
@@ -223,28 +224,31 @@ class Phase2:
             frequencies = session.query(ConceptFrequency).all()
             self.object_frequency = {f.concept_text: f.frequency for f in frequencies}
             
-            # Load important concept domains
-            domains = session.query(ImportantConceptDomain).join(Concept).join(UserStory).all()
+            # Load concepts and build final_output using concept.metadata_json
+            concepts = session.query(Concept).join(UserStory).all()
             self.final_output = []
             
-            for i, domain in enumerate(domains):
-                # Lấy text từ concept
-                concept = domain.concept
-                text = ""
-                if domain.classification == "feature":
+            for i, concept in enumerate(concepts):
+                meta = concept.metadata_json or {}
+                classification = meta.get("classification") or (
+                    "feature" if concept.action else ("role" if concept.role else ("object" if concept.object else "unknown"))
+                )
+                if classification == "feature":
                     text = concept.action
-                elif "role" in domain.classification:
+                elif "role" in classification:
                     text = concept.role
-                elif "object" in domain.classification:
+                elif "object" in classification:
                     text = concept.object
+                else:
+                    text = concept.action or concept.role or concept.object or ""
                 
                 record_dict = {
                     "indices": i + 1,
                     "usid_text": f"{concept.user_story.story_id}: {concept.user_story.original_text}",
                     "text": text,
-                    "concept_and_domain": domain.classification,
-                    "0 - feature flag": domain.is_feature if domain.classification == "feature" else None,
-                    "1 - value flag": 1 if domain.classification != "feature" else None
+                    "concept_and_domain": classification,
+                    "0 - feature flag": meta.get("is_feature") if classification == "feature" else None,
+                    "1 - value flag": meta.get("value_flag") if classification != "feature" else None
                 }
                 self.final_output.append(record_dict)
             

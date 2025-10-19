@@ -13,6 +13,7 @@ MYSQL_USERNAME = os.environ["MYSQL_USERNAME"]
 MYSQL_PASSWORD = os.environ["MYSQL_PASSWORD"]
 MYSQL_DATABASE = os.environ["MYSQL_DATABASE"]
 
+
 # Kết nối SQLAlchemy
 DATABASE_URL = (
     f"mysql+pymysql://{MYSQL_USERNAME}:{MYSQL_PASSWORD}"
