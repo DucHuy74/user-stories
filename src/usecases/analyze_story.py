@@ -4,34 +4,39 @@ implementations to be provided. During migration we'll import the existing
 phase packages and pass through.
 """
 from typing import List, Dict, Any, Optional
-from src.adapters.repositories import get_db_manager
-
-# During migration these imports map to the existing phase packages
-try:
-    from analyzeUserStory.phase1 import Phase1
-    from analyzeUserStory.phase2 import Phase2
-    from analyzeUserStory.phase3 import Phase3
-except Exception:
-    Phase1 = None
-    Phase2 = None
-    Phase3 = None
+from src.domain.ports import (
+    Phase1Port,
+    Phase2Port,
+    Phase3Port,
+    RepositoryPort,
+    GraphAdapterPort,
+)
 
 
 class AnalyzeStoriesUseCase:
-    def __init__(self, db_manager=None):
-        self.db_manager = db_manager or get_db_manager()
+    """Usecase that orchestrates the three phases.
+
+    This class depends only on abstract ports (interfaces). Concrete adapters
+    should be provided by the application wiring (IoC).
+    """
+    def __init__(
+        self,
+        phase1: Phase1Port,
+        phase2: Phase2Port,
+        phase3: Phase3Port,
+        repository: RepositoryPort,
+        graph_adapter: GraphAdapterPort,
+    ):
+        self.phase1 = phase1
+        self.phase2 = phase2
+        self.phase3 = phase3
+        self.repository = repository
+        self.graph_adapter = graph_adapter
 
     def execute(self, user_stories: List[str]) -> Dict[str, Any]:
-        if not Phase1 or not Phase2 or not Phase3:
-            raise RuntimeError("Phase implementations are not available during migration")
-
-        p1 = Phase1()
-        r1 = p1.process_text(user_stories)
-
-        p2 = Phase2()
-        r2 = p2.analyze_concepts(r1)
-
-        p3 = Phase3()
-        r3 = p3.process_wordnet(r2)
+        # Delegate to phase ports — usecase does not import concrete implementations
+        r1 = self.phase1.process_text(user_stories)
+        r2 = self.phase2.analyze_concepts(r1)
+        r3 = self.phase3.process_wordnet(r2)
 
         return {"phase1": r1, "phase2": r2, "phase3": r3}
