@@ -50,6 +50,8 @@ class Phase1:
                     }
                     results.append(concept)
                     user_story_id = save_to_database(session, story_id, story.strip(), role, action, obj)
+                    # store DB primary key so downstream phases can persist Concept rows
+                    concept["db_id"] = user_story_id
                     visual_result = None
                     # call visual narrator only when needed
                     from .helpers import visual_narrator_processing

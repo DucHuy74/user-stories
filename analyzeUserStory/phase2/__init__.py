@@ -25,7 +25,8 @@ class Phase2:
                 enriched = attach_frequency_to_concepts(concepts, self.object_frequency)
                 # persist concepts
                 for c in enriched:
-                    save_concepts(session, c.get('id'), [c])
+                    user_story_db_id = c.get('db_id') or c.get('id')
+                    save_concepts(session, user_story_db_id, [c])
 
                 # generate final output
                 self._generate_final_output()

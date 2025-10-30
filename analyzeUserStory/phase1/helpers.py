@@ -34,21 +34,61 @@ def save_visual_narrator_result(session, user_story_id: str, visual_result: Dict
 
 
 def save_to_database(session, story_id: str, original_text: str, role: Optional[str], action: Optional[str], obj: Optional[str]) -> str:
-    user_story = UserStory(
-        story_id=story_id,
-        original_text=original_text
-    )
-    session.add(user_story)
-    session.flush()
+    try:
+        user_story = UserStory(
+            story_id=story_id,
+            original_text=original_text
+        )
+        session.add(user_story)
 
-    concept = Concept(
-        user_story_id=user_story.id,
-        role=role if role else None,
-        action=action if action else None,
-        object=obj if obj else None
-    )
-    session.add(concept)
-    return user_story.id
+        # Try to flush and ensure the row exists for FK checks. If flush doesn't
+        # materialize the row for any reason, commit to guarantee persistence.
+        session.flush()
+        # verify existence
+        exists = session.query(UserStory).filter_by(id=user_story.id).first()
+        if not exists:
+            session.commit()
+            # refresh after commit
+            try:
+                session.refresh(user_story)
+            except Exception:
+                pass
+
+        # Now insert Concept referencing the persisted user_story
+        try:
+            with session.no_autoflush:
+                concept = Concept(
+                    user_story_id=user_story.id,
+                    role=role if role else None,
+                    action=action if action else None,
+                    object=obj if obj else None
+                )
+                session.add(concept)
+        except AttributeError:
+            concept = Concept(
+                user_story_id=user_story.id,
+                role=role if role else None,
+                action=action if action else None,
+                object=obj if obj else None
+            )
+            session.add(concept)
+
+        # commit the concept so FK constraint is satisfied immediately
+        try:
+            session.commit()
+        except Exception:
+            # If commit fails, rollback and re-raise to let caller handle
+            session.rollback()
+            raise
+
+        return user_story.id
+    except Exception:
+        # Ensure any exception doesn't leave transaction open
+        try:
+            session.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def update_processing_session(session, session_id: str, phase_completed: int, status: str):
