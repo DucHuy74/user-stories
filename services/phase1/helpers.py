@@ -106,12 +106,33 @@ def get_timestamp() -> str:
     return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
-def extract_components(story: str, nlp) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    story_core = story.split("so that", 1)[0]
-    doc = nlp(story_core.strip())
+from typing import Optional, Tuple, List
+# import spacy # Đã có trong context của class Phase1
 
-    role = find_role(doc)
-    action, obj = find_action_and_object(doc)
+# Giả định các hàm find_role, find_action_and_object, và visual_narrator_processing đã được định nghĩa
+
+def extract_components(story: str, nlp) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    doc = nlp(story.strip())
+    
+    story_core_tokens: List[str] = []
+    
+    tokens_to_exclude = {token.i for token in doc if token.dep_ == "advcl"}
+
+    for token in doc:
+        if token.i in tokens_to_exclude:
+            for child in token.subtree:
+                tokens_to_exclude.add(child.i)
+
+
+    for token in doc:
+        if token.i not in tokens_to_exclude:
+            story_core_tokens.append(token.text_with_ws)
+
+    story_core = "".join(story_core_tokens).strip()
+
+    doc_core = nlp(story_core)
+    role = find_role(doc_core)
+    action, obj = find_action_and_object(doc_core)
 
     visual_narrator_result = visual_narrator_processing(story, nlp)
     if visual_narrator_result:
@@ -120,7 +141,7 @@ def extract_components(story: str, nlp) -> Tuple[Optional[str], Optional[str], O
             action = visual_narrator_result.get('action') or action
             obj = visual_narrator_result.get('object') or obj
 
-    # normalize strings
+    # 6. Chuẩn hóa chuỗi (Vẫn giữ nguyên)
     role = role.lower().strip() if role else None
     action = action.lower().strip() if action else None
     obj = obj.lower().strip() if obj else None
@@ -129,17 +150,24 @@ def extract_components(story: str, nlp) -> Tuple[Optional[str], Optional[str], O
 
 
 def find_role(doc) -> Optional[str]:
-    for i, token in enumerate(doc):
-        if token.lower_ == "as" and i + 1 < len(doc) and doc[i+1].lower_ in ("a", "an"):
-            role_tokens = []
-            for j in range(i + 2, len(doc)):
-                if doc[j].pos_ in ("PUNCT", "VERB", "CCONJ"):
-                    break
-                role_tokens.append(doc[j].text)
-            return " ".join(role_tokens) if role_tokens else None
+    for token in doc:
+        #prep = giới từ
+        if token.lower_ == "as" and token.dep_ == "prep":
+            for child in token.children:
+                # pobj = tân ngữ giới từ
+                if child.dep_ == "pobj":
+                    role_tokens = [t.text for t in child.subtree if not t.is_punct]
+                    return " ".join(role_tokens).strip()
+
+        if token.i > 5 and token.dep_ not in ("nsubj", "nsubjpass", "ROOT"):
+            break
+
 
     for token in doc:
-        if token.dep_ in ("nsubj", "nsubjpass") and token.head.dep_ == "ROOT":
+        if token.dep_ in ("nsubj", "nsubjpass"):
+            if token.pos_ not in ("PRON", "NOUN") or token.head.dep_ != "ROOT":
+                continue
+
             return " ".join([t.text for t in token.subtree if not t.is_punct])
 
     return None
