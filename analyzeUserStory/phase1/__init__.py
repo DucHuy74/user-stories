@@ -2,7 +2,7 @@ import uuid
 import logging
 from typing import List, Dict, Optional
 from database import DatabaseSession, get_database_manager
-from models import ProcessingSession
+from models.models import ProcessingSession
 from .helpers import (
     create_processing_session,
     save_visual_narrator_result,
@@ -50,6 +50,8 @@ class Phase1:
                     }
                     results.append(concept)
                     user_story_id = save_to_database(session, story_id, story.strip(), role, action, obj)
+                    # store DB primary key so downstream phases can persist Concept rows
+                    concept["db_id"] = user_story_id
                     visual_result = None
                     # call visual narrator only when needed
                     from .helpers import visual_narrator_processing
