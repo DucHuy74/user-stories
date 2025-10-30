@@ -6,6 +6,7 @@ from typing import List
 from analyzeUserStory.phase1 import Phase1
 from analyzeUserStory.phase2 import Phase2
 from analyzeUserStory.phase3 import Phase3
+from analyzeUserStory.phase4 import Phase4
 from constant import PASSWORD_GRAPH_DB, URL_CONNECTION_GRAPH_DB, USER_GRAPH_DB
 from fastapi import HTTPException
 
@@ -33,33 +34,9 @@ async def analyze_stories(data: StoriesInput):
         phase3 = Phase3()
         p3 = phase3.process_wordnet(p2)
 
-        # ---- Lưu vào Neo4j ----
-        for us in p1["concepts"]:
-            story_uuid = str(uuid.uuid4())
-            story_text = us["original_text"]
-            graph.create_node(
-                "UserStory",
-                {"id": story_uuid, "phase1_id": us["id"], "text": story_text},
-                key="id"
-            )
-
-        # 2. Lưu Role - Action - Object
-        for svo in p3["subject_verb_object"]:
-            subj = svo.get("subject")
-            verb = svo.get("verb")
-            obj = svo.get("object")
-
-            if subj and obj and verb:
-                graph.create_node("Role", {"name": subj}, key="name")
-                
-                graph.create_node("Object", {"name": obj}, key="name")
-                
-                graph.create_relationship(
-                    start_label="Role", start_key="name", start_val=subj,
-                    rel_type="ACTION",
-                    end_label="Object", end_key="name", end_val=obj,
-                    props={"verb": verb}
-                )
+        # Persist phase outputs into Neo4j (moved to Phase4)
+        phase4 = Phase4()
+        phase4.persist_graph(p1, p3, graph)
 
 
         return {"phase1": p1, "phase2": p2, "phase3": p3}
