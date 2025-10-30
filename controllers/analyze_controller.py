@@ -1,10 +1,8 @@
-import uuid
 from typing import Dict, Any
-
-from analyzeUserStory.phase1 import Phase1
-from analyzeUserStory.phase2 import Phase2
-from analyzeUserStory.phase3 import Phase3
-from analyzeUserStory.phase4 import Phase4
+from services.phase1 import Phase1
+from services.phase2 import Phase2
+from services.phase3 import Phase3
+from services.phase4 import Phase4
 
 
 def analyze_stories_controller(data, graph) -> Dict[str, Any]:
