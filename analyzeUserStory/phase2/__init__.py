@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List
 from database import DatabaseSession, get_database_manager
 from .helpers import count_concept_frequency, attach_frequency_to_concepts, save_concepts
-from models import ProcessingSession
+from models.models import ProcessingSession
 
 
 class Phase2:

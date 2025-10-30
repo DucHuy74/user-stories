@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 from collections import Counter
-from models import Concept
+from models.models import Concept
 
 
 def count_concept_frequency(concepts: List[Dict[str, Any]]) -> Dict[str, int]:

@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from models import Concept
+from models.models import Concept
 from sqlalchemy import or_
 
 

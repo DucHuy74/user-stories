@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional, Tuple
 import logging
 import re
 from database import DatabaseSession, get_database_manager
-from models import ProcessingSession, UserStory, Concept
+from models.models import ProcessingSession, UserStory, Concept
 
 
 def create_processing_session(db_manager, session_name: str, total_stories: int) -> ProcessingSession:

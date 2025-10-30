@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List
 from database import DatabaseSession, get_database_manager
 from .helpers import generate_synonym_records, save_synonyms
-from models import ProcessingSession
+from models.models import ProcessingSession
 
 
 class Phase3:
