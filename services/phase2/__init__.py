@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict
 from database import DatabaseSession, get_database_manager
 from .helpers import count_concept_frequency, attach_frequency_to_concepts, save_concepts
 from models import ProcessingSession

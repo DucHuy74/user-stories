@@ -2,7 +2,6 @@ import uuid
 import logging
 from typing import List, Dict
 from database import DatabaseSession, get_database_manager
-from models.models import ProcessingSession
 from .helpers import (
     create_processing_session,
     save_visual_narrator_result,

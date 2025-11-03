@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict
 from database import DatabaseSession, get_database_manager
 from .helpers import generate_synonym_records, save_synonyms, save_svo_relationships
 from models import ProcessingSession

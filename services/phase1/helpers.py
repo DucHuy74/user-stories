@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional, Tuple
 import logging
 import re
-from database import DatabaseSession, get_database_manager
+from database import DatabaseSession
 from models import ProcessingSession
 from models.user_story import UserStory
 
