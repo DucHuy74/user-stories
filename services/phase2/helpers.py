@@ -1,46 +1,54 @@
 from typing import List, Dict, Any
 from collections import Counter
-from models.models import Concept
+from models.concept import Concept
 
 
 def count_concept_frequency(concepts: List[Dict[str, Any]]) -> Dict[str, int]:
-    # Phase2 concepts may use 'name' or 'text' as the value holder
-    names = [c.get('name') or c.get('text') for c in concepts if (c.get('name') or c.get('text'))]
+    # Compute frequency across provided concept records; prefer 'text'
+    names = [
+        (c.get('text') or c.get('name'))
+        for c in concepts
+        if (c.get('text') or c.get('name'))
+    ]
     return dict(Counter(names))
 
 
 def attach_frequency_to_concepts(concepts: List[Dict[str, Any]], frequencies: Dict[str, int]) -> List[Dict[str, Any]]:
     for c in concepts:
         # Phase2 may store the text under 'name' or 'text' — use either for lookup
-        name = c.get('name') or c.get('text')
+        name = c.get('text') or c.get('name')
         c['frequency'] = frequencies.get(name, 0)
+        # normalize type for future persistence
+        if 'user_story_db_id' not in c and 'db_id' in c:
+            c['user_story_db_id'] = c['db_id']
     return concepts
 
 
-def save_concepts(session, user_story_id: str, concepts: List[Dict[str, Any]]):
+def save_concepts(session, user_story_id: int, concepts: List[Dict[str, Any]]):
     for c in concepts:
-        # Map the generic 'name' or 'text' field from Phase2 final_output into the
-        # appropriate Concept columns (action/role/object) based on classification
-        name = c.get('name') or c.get('text')
-        classification = c.get('concept_and_domain', '') or ''
-        role = None
-        action = None
-        obj = None
-        if 'feature' in classification:
-            action = name
-        elif 'role' in classification:
-            role = name
+        # Map generic fields into Concept schema
+        name = (c.get('text') or c.get('name'))
+        if not name:
+            # skip malformed entries
+            continue
+        classification = (c.get('concept_and_domain') or '').lower()
+        is_feature = 'feature' in classification
+        # derive a simple domain label
+        if 'role' in classification:
+            domain = 'role'
         elif 'object' in classification:
-            obj = name
+            domain = 'object'
+        elif 'feature' in classification:
+            domain = 'feature'
         else:
-            # fallback to action
-            action = name
+            domain = None
+        frequency = c.get('frequency') or 1
 
         concept = Concept(
-            user_story_id=user_story_id,
-            role=role,
-            action=action,
-            object=obj,
-            metadata_json=c
+            usid=user_story_id,
+            term=name,
+            is_feature=is_feature,
+            frequency=frequency,
+            domain=domain
         )
         session.add(concept)

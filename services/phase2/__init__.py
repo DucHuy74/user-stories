@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List
 from database import DatabaseSession, get_database_manager
 from .helpers import count_concept_frequency, attach_frequency_to_concepts, save_concepts
-from models.models import ProcessingSession
+from models import ProcessingSession
 
 
 class Phase2:
@@ -20,16 +20,16 @@ class Phase2:
 
         try:
             with DatabaseSession(self.db_manager) as session:
-                concepts = self.input_data.get("concepts", [])
-                self.object_frequency = count_concept_frequency(concepts)
-                enriched = attach_frequency_to_concepts(concepts, self.object_frequency)
-                # persist concepts
-                for c in enriched:
-                    user_story_db_id = c.get('db_id') or c.get('id')
-                    save_concepts(session, user_story_db_id, [c])
-
-                # generate final output
+                # generate final output from phase1 concepts
                 self._generate_final_output()
+                # compute frequency across final_output texts
+                self.object_frequency = count_concept_frequency(self.final_output)
+                # attach frequencies to final_output
+                self.final_output = attach_frequency_to_concepts(self.final_output, self.object_frequency)
+                # persist concepts based on final_output
+                for rec in self.final_output:
+                    user_story_db_id = rec.get('user_story_db_id') or rec.get('db_id') or rec.get('id')
+                    save_concepts(session, user_story_db_id, [rec])
                 self._update_processing_session(session, 2, "completed")
 
             logging.info(f"✅ Phase 2 completed: Analyzed {len(self.final_output)} records")
@@ -48,7 +48,8 @@ class Phase2:
     def _generate_final_output(self):
         self.final_output = []
         for concept_item in self.input_data.get("concepts", []):
-            usid = concept_item.get("id")
+            external_id = concept_item.get("id")
+            user_story_db_id = concept_item.get("db_id")
             original_text = concept_item.get("original_text")
             role = concept_item.get("role")
             action = concept_item.get("action")
@@ -56,7 +57,8 @@ class Phase2:
 
             if action:
                 self.final_output.append({
-                    "usid_text": f"{usid}: {original_text}",
+                    "usid_text": f"{external_id}: {original_text}",
+                    "user_story_db_id": user_story_db_id,
                     "text": action,
                     "concept_and_domain": "feature",
                     "0 - feature flag": 0,
@@ -65,7 +67,8 @@ class Phase2:
 
             if role:
                 self.final_output.append({
-                    "usid_text": f"{usid}: {original_text}",
+                    "usid_text": f"{external_id}: {original_text}",
+                    "user_story_db_id": user_story_db_id,
                     "text": role,
                     "concept_and_domain": "role (general)",
                     "0 - feature flag": None,
@@ -74,7 +77,8 @@ class Phase2:
 
             if obj:
                 self.final_output.append({
-                    "usid_text": f"{usid}: {original_text}",
+                    "usid_text": f"{external_id}: {original_text}",
+                    "user_story_db_id": user_story_db_id,
                     "text": obj,
                     "concept_and_domain": "object (general)",
                     "0 - feature flag": None,

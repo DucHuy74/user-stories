@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, List
 from database import DatabaseSession, get_database_manager
-from .helpers import generate_synonym_records, save_synonyms
-from models.models import ProcessingSession
+from .helpers import generate_synonym_records, save_synonyms, save_svo_relationships
+from models import ProcessingSession
 
 
 class Phase3:
@@ -23,10 +23,12 @@ class Phase3:
             with DatabaseSession(self.db_manager) as session:
                 concepts = [r.get('text') for r in self.input_data.get('final_output', []) if r.get('text')]
                 synonym_records = generate_synonym_records([{'name': c} for c in concepts])
-                save_synonyms(session, self.session_id, synonym_records)
+                usids = {r.get('user_story_db_id') for r in self.input_data.get('final_output', []) if r.get('user_story_db_id')}
+                for usid in usids:
+                    save_synonyms(session, usid, synonym_records)
 
-                # simplified similarity logic left in module for future expansion
                 self._create_final_output()
+                save_svo_relationships(session, self.final_output.get("subject_verb_object", []))
                 self._update_processing_session(session, 3, "completed")
 
             logging.info("✅ Phase 3 completed")
@@ -47,7 +49,9 @@ class Phase3:
         story_map = {}
         for record in all_records:
             usid = record.get("usid_text", "").split(":", 1)[0].strip()
+            usid_db_id = record.get("user_story_db_id")
             ent = story_map.setdefault(usid, {"subject": "", "verb": "", "object": "", "usid": usid})
+            ent["user_story_db_id"] = usid_db_id
             if "role" in record.get("concept_and_domain", ""):
                 ent["subject"] = record.get("text", "")
             elif "object" in record.get("concept_and_domain", ""):

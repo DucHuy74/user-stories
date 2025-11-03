@@ -2,7 +2,8 @@ from typing import Dict, Any, Optional, Tuple
 import logging
 import re
 from database import DatabaseSession, get_database_manager
-from models.models import ProcessingSession, UserStory, Concept
+from models import ProcessingSession
+from models.user_story import UserStory
 
 
 def create_processing_session(db_manager, session_name: str, total_stories: int) -> ProcessingSession:
@@ -18,70 +19,22 @@ def create_processing_session(db_manager, session_name: str, total_stories: int)
         return processing_session
 
 
-def save_visual_narrator_result(session, user_story_id: str, visual_result: Dict[str, Any], session_id: str):
-    try:
-        concept = session.query(Concept).filter_by(user_story_id=user_story_id).first()
-        if concept:
-            meta = concept.metadata_json or {}
-            meta.update({
-                'visual_narrator': visual_result,
-                'visual_session': session_id
-            })
-            concept.metadata_json = meta
-            session.add(concept)
-    except Exception as e:
-        logging.error(f"Failed to save visual narrator result to concept metadata: {e}")
+def save_visual_narrator_result(session, user_story_id: int, visual_result: Dict[str, Any], session_id: str):
+    # New schema has no per-concept metadata field; keep for future audit table.
+    logging.debug("Visual narrator result received for usid=%s (ignored by current schema)", user_story_id)
 
 
-def save_to_database(session, story_id: str, original_text: str, role: Optional[str], action: Optional[str], obj: Optional[str]) -> str:
+def save_to_database(session, story_id: str, original_text: str, role: Optional[str], action: Optional[str], obj: Optional[str]) -> int:
     try:
         user_story = UserStory(
-            story_id=story_id,
-            original_text=original_text
+            text=original_text,
+            role=role if role else None,
+            verb=action if action else None,
+            object=obj if obj else None,
         )
         session.add(user_story)
-
-        # Try to flush and ensure the row exists for FK checks. If flush doesn't
-        # materialize the row for any reason, commit to guarantee persistence.
         session.flush()
-        # verify existence
-        exists = session.query(UserStory).filter_by(id=user_story.id).first()
-        if not exists:
-            session.commit()
-            # refresh after commit
-            try:
-                session.refresh(user_story)
-            except Exception:
-                pass
-
-        # Now insert Concept referencing the persisted user_story
-        try:
-            with session.no_autoflush:
-                concept = Concept(
-                    user_story_id=user_story.id,
-                    role=role if role else None,
-                    action=action if action else None,
-                    object=obj if obj else None
-                )
-                session.add(concept)
-        except AttributeError:
-            concept = Concept(
-                user_story_id=user_story.id,
-                role=role if role else None,
-                action=action if action else None,
-                object=obj if obj else None
-            )
-            session.add(concept)
-
-        # commit the concept so FK constraint is satisfied immediately
-        try:
-            session.commit()
-        except Exception:
-            # If commit fails, rollback and re-raise to let caller handle
-            session.rollback()
-            raise
-
-        return user_story.id
+        return user_story.usid
     except Exception:
         # Ensure any exception doesn't leave transaction open
         try:

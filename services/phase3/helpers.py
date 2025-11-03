@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
-from models.models import Concept
-from sqlalchemy import or_
+from models.concept import Concept
+from models.synonym import Synonym
+from models.concept_map import ConceptMap
 
 
 def generate_synonym_records(concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -20,22 +21,38 @@ def generate_synonym_records(concepts: List[Dict[str, Any]]) -> List[Dict[str, A
     return records
 
 
-def save_synonyms(session, user_story_id: str, synonym_records: List[Dict[str, Any]]):
+def save_synonyms(session, user_story_id: int, synonym_records: List[Dict[str, Any]]):
     for rec in synonym_records:
         concept_text = rec.get('concept')
         if not concept_text:
             continue
-        # Find concept row where any of role/action/object matches the concept text
-        concept = session.query(Concept).filter(
-            Concept.user_story_id == user_story_id,
-            or_(
-                Concept.action == concept_text,
-                Concept.role == concept_text,
-                Concept.object == concept_text,
-            )
-        ).first()
-        if concept:
-            meta = concept.metadata_json or {}
-            meta['synonyms'] = rec.get('synonyms', [])
-            concept.metadata_json = meta
-            session.add(concept)
+        concepts = session.query(Concept).filter(
+            Concept.usid == user_story_id,
+            Concept.term == concept_text,
+        ).all()
+        for c in concepts:
+            for syn in rec.get('synonyms', [concept_text]):
+                session.add(Synonym(concept_id=c.concept_id, synonym_term=syn, source='WordNet'))
+
+
+def save_svo_relationships(session, svo_list: List[Dict[str, Any]]):
+    """Persist SVO as entries in concept_map.
+    Each item should contain keys: subject, verb, object, and user_story_db_id.
+    """
+    for svo in svo_list:
+        usid = svo.get('user_story_db_id')
+        subj = (svo.get('subject') or '').strip()
+        verb = (svo.get('verb') or '').strip()
+        obj = (svo.get('object') or '').strip()
+        if not (usid and subj and obj):
+            continue
+        subj_concept = session.query(Concept).filter(Concept.usid == usid, Concept.term == subj).first()
+        obj_concept = session.query(Concept).filter(Concept.usid == usid, Concept.term == obj).first()
+        if subj_concept and obj_concept:
+            session.add(ConceptMap(
+                subject_concept_id=subj_concept.concept_id,
+                verb=verb or None,
+                object_concept_id=obj_concept.concept_id,
+                relation_type='SVO',
+                source='phase3'
+            ))
