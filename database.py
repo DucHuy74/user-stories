@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
 from constant import MYSQL_HOST, MYSQL_PASSWORD, MYSQL_USERNAME, MYSQL_PORT, MYSQL_DATABASE
@@ -37,10 +37,126 @@ class DatabaseManager:
         """Tạo tất cả bảng trong database"""
         try:
             Base.metadata.create_all(bind=self.engine)
+            # Ensure minimal schema adjustments without migrations
+            self._ensure_schema()
             logging.info("✅ All tables created successfully")
         except SQLAlchemyError as e:
             logging.error(f"❌ Failed to create tables: {e}")
             raise
+
+    def _ensure_schema(self):
+        """Apply minimal, non-destructive schema adjustments when migrations are not used.
+
+        - Add concepts.concept_type if it's missing.
+        - Add concepts.text_userrole if it's missing.
+        - Add concepts.text_object_as_concept_domain if it's missing.
+        - Add concepts.feature_flag if it's missing.
+        - Add concepts.value_flag if it's missing.
+        - Add svo_relationships.method if it's missing.
+        - Add svo_relationships.domain_label if it's missing.
+        - Missing tables are already handled by create_all.
+        """
+        try:
+            with self.engine.begin() as conn:
+                # Does concepts.concept_type exist?
+                exists_sql = text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'concepts'
+                      AND COLUMN_NAME = 'concept_type'
+                    """
+                )
+                result = conn.execute(exists_sql).scalar() or 0
+                if int(result) == 0:
+                    conn.execute(text("ALTER TABLE concepts ADD COLUMN concept_type VARCHAR(20) NULL"))
+                    logging.info("🛠️ Added missing column concepts.concept_type")
+
+                # Add text_userrole
+                exists_sql = text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'concepts'
+                      AND COLUMN_NAME = 'text_userrole'
+                    """
+                )
+                if int(conn.execute(exists_sql).scalar() or 0) == 0:
+                    conn.execute(text("ALTER TABLE concepts ADD COLUMN text_userrole VARCHAR(255) NULL"))
+                    logging.info("🛠️ Added missing column concepts.text_userrole")
+
+                # Add text_object_as_concept_domain
+                exists_sql = text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'concepts'
+                      AND COLUMN_NAME = 'text_object_as_concept_domain'
+                    """
+                )
+                if int(conn.execute(exists_sql).scalar() or 0) == 0:
+                    conn.execute(text("ALTER TABLE concepts ADD COLUMN text_object_as_concept_domain VARCHAR(255) NULL"))
+                    logging.info("🛠️ Added missing column concepts.text_object_as_concept_domain")
+
+                # Add feature_flag
+                exists_sql = text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'concepts'
+                      AND COLUMN_NAME = 'feature_flag'
+                    """
+                )
+                if int(conn.execute(exists_sql).scalar() or 0) == 0:
+                    conn.execute(text("ALTER TABLE concepts ADD COLUMN feature_flag INT NULL"))
+                    logging.info("🛠️ Added missing column concepts.feature_flag")
+
+                # Add value_flag
+                exists_sql = text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'concepts'
+                      AND COLUMN_NAME = 'value_flag'
+                    """
+                )
+                if int(conn.execute(exists_sql).scalar() or 0) == 0:
+                    conn.execute(text("ALTER TABLE concepts ADD COLUMN value_flag INT NULL"))
+                    logging.info("🛠️ Added missing column concepts.value_flag")
+
+                # Ensure svo_relationships additional columns
+                exists_sql = text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'svo_relationships'
+                      AND COLUMN_NAME = 'method'
+                    """
+                )
+                if int(conn.execute(exists_sql).scalar() or 0) == 0:
+                    conn.execute(text("ALTER TABLE svo_relationships ADD COLUMN method VARCHAR(50) NULL"))
+                    logging.info("🛠️ Added missing column svo_relationships.method")
+
+                exists_sql = text(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'svo_relationships'
+                      AND COLUMN_NAME = 'domain_label'
+                    """
+                )
+                if int(conn.execute(exists_sql).scalar() or 0) == 0:
+                    conn.execute(text("ALTER TABLE svo_relationships ADD COLUMN domain_label VARCHAR(100) NULL"))
+                    logging.info("🛠️ Added missing column svo_relationships.domain_label")
+        except Exception as e:
+            logging.warning(f"Schema ensure skipped or failed: {e}")
     
     def get_session(self) -> Session:
         """Lấy database session mới"""

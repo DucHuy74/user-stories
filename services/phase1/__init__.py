@@ -4,12 +4,10 @@ from typing import List, Dict
 from database import DatabaseSession, get_database_manager
 from .helpers import (
     create_processing_session,
-    save_visual_narrator_result,
     save_to_database,
     update_processing_session,
     get_timestamp,
     extract_components,
-    visual_narrator_processing,
 )
 
 
@@ -31,38 +29,30 @@ class Phase1:
         processing_session = create_processing_session(self.db_manager, self.session_name, len(user_stories))
         results = []
 
-        try:
-            with DatabaseSession(self.db_manager) as session:
-                for story in filter(str.strip, user_stories):
-                    role, action, obj = extract_components(story, self.nlp)
-                    story_id = str(uuid.uuid4())
+        with DatabaseSession(self.db_manager) as session:
+            for story in filter(str.strip, user_stories):
+                role, action, obj = extract_components(story, self.nlp)
+                story_id = str(uuid.uuid4())
 
-                    user_story_id = save_to_database(session, story_id, story.strip(), role, action, obj)
-                    visual_result = visual_narrator_processing(story, self.nlp)
+                user_story_id = save_to_database(session, story_id, story.strip(), role, action, obj, nlp=self.nlp)
 
-                    if visual_result:
-                        save_visual_narrator_result(session, user_story_id, visual_result, processing_session.id)
+                results.append({
+                    "id": story_id,
+                    "db_id": user_story_id,
+                    "original_text": story.strip(),
+                    "role": role or "",
+                    "action": action or "",
+                    "object": obj or "",
+                })
 
-                    results.append({
-                        "id": story_id,
-                        "db_id": user_story_id,
-                        "original_text": story.strip(),
-                        "role": role or "",
-                        "action": action or "",
-                        "object": obj or "",
-                    })
-
-                update_processing_session(session, processing_session.id, 1, "completed")
-            logging.info(f"✅ Phase 1 completed: Processed {len(results)} user stories")
-        except Exception as e:
-            logging.error(f"❌ Phase 1 failed: {e}")
-            with DatabaseSession(self.db_manager) as session:
-                update_processing_session(session, processing_session.id, 1, "failed")
-            raise
+            update_processing_session(session, processing_session.id, 1, "completed")
+        logging.info(f"✅ Phase 1 completed: Processed {len(results)} user stories")
+        
 
         roles = sorted({c["role"] for c in results if c["role"]})
         actions = sorted({c["action"] for c in results if c["action"]})
         objects = sorted({c["object"] for c in results if c["object"]})
+
 
         return {
             "concepts": results,

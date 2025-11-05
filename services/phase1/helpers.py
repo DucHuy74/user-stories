@@ -1,9 +1,10 @@
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 import logging
 import re
 from database import DatabaseSession
 from models import ProcessingSession
 from models.user_story import UserStory
+from models.svo_raw import SvoRaw
 
 
 def create_processing_session(db_manager, session_name: str, total_stories: int) -> ProcessingSession:
@@ -19,12 +20,45 @@ def create_processing_session(db_manager, session_name: str, total_stories: int)
         return processing_session
 
 
-def save_visual_narrator_result(session, user_story_id: int, visual_result: Dict[str, Any], session_id: str):
-    # New schema has no per-concept metadata field; keep for future audit table.
-    logging.debug("Visual narrator result received for usid=%s (ignored by current schema)", user_story_id)
+# Visual Narrator is no longer used
 
 
-def save_to_database(session, story_id: str, original_text: str, role: Optional[str], action: Optional[str], obj: Optional[str]) -> int:
+def extract_svos(doc) -> List[Tuple[Optional[str], Optional[str], Optional[str]]]:
+    """Extract all SVO triples from a spaCy doc (simple heuristic)."""
+    svos: List[Tuple[Optional[str], Optional[str], Optional[str]]] = []
+    for token in doc:
+        if token.pos_ == 'VERB':
+            subj = None
+            obj = None
+            # subject
+            for child in token.children:
+                if child.dep_ in ('nsubj', 'nsubjpass'):
+                    subj = " ".join([t.text for t in child.subtree if not t.is_punct])
+                    break
+            # direct object or pobj
+            for child in token.children:
+                if child.dep_ == 'dobj':
+                    obj = " ".join([t.text for t in child.subtree if not t.is_punct])
+                    break
+                if child.dep_ == 'prep':
+                    for gc in child.children:
+                        if gc.dep_ == 'pobj':
+                            obj = " ".join([t.text for t in gc.subtree if not t.is_punct])
+                            break
+            verb = token.lemma_.lower()
+            svos.append(((subj or '') or None, verb or None, (obj or '') or None))
+    # deduplicate
+    uniq = []
+    seen = set()
+    for s, v, o in svos:
+        key = (s or '', v or '', o or '')
+        if key not in seen and (s or v or o):
+            seen.add(key)
+            uniq.append((s, v, o))
+    return uniq
+
+
+def save_to_database(session, story_id: str, original_text: str, role: Optional[str], action: Optional[str], obj: Optional[str], nlp=None) -> int:
     try:
         user_story = UserStory(
             text=original_text,
@@ -34,7 +68,13 @@ def save_to_database(session, story_id: str, original_text: str, role: Optional[
         )
         session.add(user_story)
         session.flush()
-        return user_story.usid
+        usid = user_story.usid
+        # Extract and persist SVO_raw
+        if nlp is not None:
+            doc = nlp(original_text)
+            for s, v, o in extract_svos(doc):
+                session.add(SvoRaw(usid=usid, subject=(s or None), verb=(v or None), object=(o or None)))
+        return usid
     except Exception:
         # Ensure any exception doesn't leave transaction open
         try:
@@ -87,14 +127,6 @@ def extract_components(story: str, nlp) -> Tuple[Optional[str], Optional[str], O
     role = find_role(doc_core)
     action, obj = find_action_and_object(doc_core)
 
-    visual_narrator_result = visual_narrator_processing(story, nlp)
-    if visual_narrator_result:
-        if visual_narrator_result.get('confidence_score', 0) > 0.8:
-            role = visual_narrator_result.get('role') or role
-            action = visual_narrator_result.get('action') or action
-            obj = visual_narrator_result.get('object') or obj
-
-    # 6. Chuẩn hóa chuỗi (Vẫn giữ nguyên)
     role = role.lower().strip() if role else None
     action = action.lower().strip() if action else None
     obj = obj.lower().strip() if obj else None
@@ -172,50 +204,3 @@ def find_action_and_object(doc) -> Tuple[Optional[str], Optional[str]]:
 
     return action, obj
 
-
-def visual_narrator_processing(story: str, nlp) -> Optional[Dict[str, Any]]:
-    try:
-        user_story_pattern = r"As an?\s+(.*?),\s*I\s+want\s+to\s+(.*?)\s+(.*?)\s*(?:so that|in order to|because)?"
-        match = re.search(user_story_pattern, story, re.IGNORECASE)
-
-        if match:
-            role = match.group(1).strip()
-            action = match.group(2).strip()
-            obj = match.group(3).strip()
-
-            doc = nlp(story)
-            entities = []
-            relationships = []
-            for ent in doc.ents:
-                entities.append({'text': ent.text, 'label': ent.label_, 'start': ent.start_char, 'end': ent.end_char})
-            for token in doc:
-                if token.dep_ in ['nsubj', 'dobj', 'pobj']:
-                    relationships.append({'head': token.head.text, 'relation': token.dep_, 'child': token.text})
-
-            return {
-                'role': role,
-                'action': action,
-                'object': obj,
-                'entities': entities,
-                'relationships': relationships,
-                'confidence_score': 0.9,
-                'parsed_structure': {
-                    'format': 'standard_user_story',
-                    'components': {'role': role, 'action': action, 'object': obj}
-                }
-            }
-        else:
-            doc = nlp(story)
-            entities = [{'text': ent.text, 'label': ent.label_} for ent in doc.ents]
-            return {
-                'role': None,
-                'action': None,
-                'object': None,
-                'entities': entities,
-                'relationships': [],
-                'confidence_score': 0.3,
-                'parsed_structure': {'format': 'free_text', 'entities': entities}
-            }
-    except Exception as e:
-        logging.error(f"Visual Narrator processing failed: {e}")
-        return None

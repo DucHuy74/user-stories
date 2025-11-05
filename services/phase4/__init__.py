@@ -25,8 +25,9 @@ class Phase4:
                 key="id"
             )
 
-        # 2. Persist Role - Action - Object relationships (from phase3 output)
-        for svo in phase3_output.get("subject_verb_object", []):
+        # 2. Persist Role - Action - Object relationships (prefer normalized_svo)
+        svo_source = phase3_output.get("normalized_svo") or phase3_output.get("subject_verb_object", [])
+        for svo in svo_source:
             subj = svo.get("subject")
             verb = svo.get("verb")
             obj = svo.get("object")
